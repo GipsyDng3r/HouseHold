@@ -7,12 +7,14 @@ import {
 import { fr } from "date-fns/locale";
 import { DAYS_OF_WEEK } from "./constants";
 
-export function getNextOccurrence(task, fromDate = new Date()) {
-  const { frequency, day } = task;
+export function getNextOccurrence(task, fromDate) {
+  if (!fromDate) fromDate = new Date();
+  var frequency = task.frequency;
+  var day = task.day;
 
   if (frequency === "weekly") {
-    const dayIndex = DAYS_OF_WEEK.indexOf(day);
-    const fns = [
+    var dayIndex = DAYS_OF_WEEK.indexOf(day);
+    var fns = [
       nextMonday, nextTuesday, nextWednesday, nextThursday,
       nextFriday, nextSaturday, nextSunday,
     ];
@@ -21,7 +23,7 @@ export function getNextOccurrence(task, fromDate = new Date()) {
   }
 
   if (frequency === "monthly") {
-    const next = addMonths(fromDate, 1);
+    var next = addMonths(fromDate, 1);
     return setDate(next, Math.min(day, 28));
   }
 
@@ -30,30 +32,32 @@ export function getNextOccurrence(task, fromDate = new Date()) {
 
 export function formatDateFr(date) {
   if (!date) return "";
-  const d = typeof date === "string" ? parseISO(date) : date;
+  var d = typeof date === "string" ? parseISO(date) : date;
   return format(d, "EEEE d MMMM", { locale: fr });
 }
 
 export function formatShortDate(date) {
   if (!date) return "";
-  const d = typeof date === "string" ? parseISO(date) : date;
+  var d = typeof date === "string" ? parseISO(date) : date;
   return format(d, "dd/MM/yyyy");
 }
 
 export function getFrequencyLabel(task) {
-  const { frequency, day } = task;
-  if (frequency === "weekly") return `Chaque ${day}`;
-  if (frequency === "monthly") return `Le ${day} du mois`;
+  var frequency = task.frequency;
+  var day = task.day;
+  if (frequency === "weekly") return "Chaque " + day;
+  if (frequency === "monthly") return "Le " + day + " du mois";
   if (frequency === "seasonal") return day.charAt(0).toUpperCase() + day.slice(1);
   return "";
 }
 
 export function isTaskScheduledOnDate(task, date) {
-  const { frequency, day } = task;
+  var frequency = task.frequency;
+  var day = task.day;
 
   if (frequency === "weekly") {
-    const jsDay = date.getDay();
-    const mapped = jsDay === 0 ? 6 : jsDay - 1;
+    var jsDay = date.getDay();
+    var mapped = jsDay === 0 ? 6 : jsDay - 1;
     return DAYS_OF_WEEK[mapped] === day;
   }
 
@@ -62,10 +66,10 @@ export function isTaskScheduledOnDate(task, date) {
   }
 
   if (frequency === "seasonal") {
-    const month = date.getMonth();
-    const season =
+    var month = date.getMonth();
+    var season =
       month >= 2 && month <= 4 ? "printemps" :
-      month >= 5 && month <= 7 ? "été" :
+      month >= 5 && month <= 7 ? "ete" :
       month >= 8 && month <= 10 ? "automne" : "hiver";
     return season === day;
   }
@@ -73,4 +77,16 @@ export function isTaskScheduledOnDate(task, date) {
   return false;
 }
 
-export function getCurr
+export function getCurrentWeekDays() {
+  var today = new Date();
+  var jsDay = today.getDay();
+  var monday = new Date(today);
+  monday.setDate(today.getDate() - (jsDay === 0 ? 6 : jsDay - 1));
+  monday.setHours(0, 0, 0, 0);
+
+  return Array.from({ length: 7 }, function(_, i) {
+    var d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    return d;
+  });
+}
