@@ -2,14 +2,14 @@ const CONFIG_KEY = "householdConfig";
 const MAX_STORAGE_BYTES = 5 * 1024 * 1024;
 
 export function getStorageKey(householdId) {
-  return `householdTasks_${householdId}`;
+  return "householdTasks_" + householdId;
 }
 
 export function loadConfig() {
   try {
     const raw = localStorage.getItem(CONFIG_KEY);
     return raw ? JSON.parse(raw) : null;
-  } catch {
+  } catch (e) {
     return null;
   }
 }
@@ -22,7 +22,7 @@ export function loadTasks(householdId) {
   try {
     const raw = localStorage.getItem(getStorageKey(householdId));
     return raw ? JSON.parse(raw) : null;
-  } catch {
+  } catch (e) {
     return null;
   }
 }
@@ -40,9 +40,9 @@ export function saveTasks(householdId, tasks) {
 
 export function exportTasksToJSON(householdId, tasks) {
   const data = {
-    householdId,
+    householdId: householdId,
     exportedAt: new Date().toISOString(),
-    tasks,
+    tasks: tasks,
   };
   const blob = new Blob([JSON.stringify(data, null, 2)], {
     type: "application/json",
@@ -50,15 +50,15 @@ export function exportTasksToJSON(householdId, tasks) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `taches_${householdId}_${Date.now()}.json`;
+  a.download = "taches_" + householdId + "_" + Date.now() + ".json";
   a.click();
   URL.revokeObjectURL(url);
 }
 
 export function importTasksFromJSON(file, existingTasks) {
-  return new Promise((resolve, reject) => {
+  return new Promise(function(resolve, reject) {
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = function(e) {
       try {
         const data = JSON.parse(e.target.result);
         if (!data.tasks || !Array.isArray(data.tasks)) {
@@ -67,11 +67,13 @@ export function importTasksFromJSON(file, existingTasks) {
         }
         const merged = mergeTasksWithConflictDetection(existingTasks, data.tasks);
         resolve(merged);
-      } catch {
+      } catch (err) {
         reject(new Error("Erreur de lecture du fichier JSON."));
       }
     };
-    reader.onerror = () => reject(new Error("Erreur lors de la lecture."));
+    reader.onerror = function() {
+      reject(new Error("Erreur lors de la lecture."));
+    };
     reader.readAsText(file);
   });
 }
@@ -80,7 +82,24 @@ export function mergeTasksWithConflictDetection(localTasks, remoteTasks) {
   const map = new Map();
   const conflicts = [];
 
-  localTasks.forEach((t) => map.set(t.id, t));
+  localTasks.forEach(function(t) { map.set(t.id, t); });
 
-  remoteTasks.forEach((remote) => {
+  remoteTasks.forEach(function(remote) {
     const local = map.get(remote.id);
+    if (!local) {
+      map.set(remote.id, remote);
+    } else {
+      const localTs = new Date(local.lastUpdatedAt || 0).getTime();
+      const remoteTs = new Date(remote.lastUpdatedAt || 0).getTime();
+      if (remoteTs > localTs) {
+        map.set(remote.id, remote);
+        conflicts.push(remote.name);
+      }
+    }
+  });
+
+  return {
+    tasks: Array.from(map.values()),
+    conflicts: conflicts,
+  };
+}
