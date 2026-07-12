@@ -15,11 +15,14 @@ import AddEditTaskModal from "./components/AddEditTaskModal";
 import ConfirmationModal from "./components/ConfirmationModal";
 
 export default function App() {
-  const [config, setConfig] = useState(() => loadConfig());
+  const [config, setConfig] = useState(function() { return loadConfig(); });
   const [activeTab, setActiveTab] = useState("home");
   const [editingTask, setEditingTask] = useState(undefined);
   const [deletingTaskId, setDeletingTaskId] = useState(null);
   const [deletingTaskName, setDeletingTaskName] = useState("");
+  const [vacationMode, setVacationMode] = useState(function() {
+    return localStorage.getItem("vacationMode") === "true";
+  });
 
   const {
     tasks,
@@ -37,8 +40,8 @@ export default function App() {
   } = useTasks(config);
 
   const handleSaveTask = useCallback(
-    (formData) => {
-      if (editingTask?.id) {
+    function(formData) {
+      if (editingTask && editingTask.id) {
         updateTask(editingTask.id, formData);
       } else {
         addTask(formData);
@@ -48,16 +51,22 @@ export default function App() {
     [editingTask, addTask, updateTask]
   );
 
-  const handleDeleteRequest = useCallback((id) => {
-    const task = tasks.find((t) => t.id === id);
+  const handleDeleteRequest = useCallback(function(id) {
+    const task = tasks.find(function(t) { return t.id === id; });
     setDeletingTaskId(id);
-    setDeletingTaskName(task?.name ?? "");
+    setDeletingTaskName(task ? task.name : "");
   }, [tasks]);
 
-  const handleDeleteConfirm = useCallback(() => {
+  const handleDeleteConfirm = useCallback(function() {
     deleteTask(deletingTaskId);
     setDeletingTaskId(null);
   }, [deleteTask, deletingTaskId]);
+
+  const toggleVacation = useCallback(function() {
+    const next = !vacationMode;
+    setVacationMode(next);
+    localStorage.setItem("vacationMode", String(next));
+  }, [vacationMode]);
 
   if (!config) {
     return <SetupScreen onComplete={setConfig} />;
@@ -65,45 +74,76 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans flex flex-col max-w-md mx-auto relative">
-      <header className="bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between sticky top-0 z-30 shadow-sm">
-        <div>
-          <h1 className="font-bold text-gray-900 text-lg leading-tight">Tâches Ménagères</h1>
-          <p className="text-xs text-gray-400">{config.user1} & {config.user2} · {config.householdId}</p>
+
+      {/* Header */}
+      <header className="bg-white border-b border-gray-100 px-4 py-3 sticky top-0 z-30 shadow-sm">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="font-bold text-gray-900 text-lg leading-tight">Taches Menageres</h1>
+            <p className="text-xs text-gray-400">{config.user1} & {config.user2} · {config.householdId}</p>
+          </div>
+          <div className="flex gap-1">
+            {[config.user1, config.user2].map(function(user) {
+              return (
+                <button
+                  key={user}
+                  onClick={function() { setConfig(function(c) { return Object.assign({}, c, { currentUser: user }); }); }}
+                  className={"px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors " + (config.currentUser === user ? "bg-indigo-600 text-white" : "bg-gray-100 text-gray-500")}
+                >
+                  {user}
+                </button>
+              );
+            })}
+          </div>
         </div>
-        <div className="flex gap-1">
-          {[config.user1, config.user2].map((user) => (
-            <button
-              key={user}
-              onClick={() => setConfig((c) => ({ ...c, currentUser: user }))}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                config.currentUser === user ? "bg-indigo-600 text-white" : "bg-gray-100 text-gray-500"
-              }`}
-            >
-              {user}
-            </button>
-          ))}
-        </div>
+
+        {/* Bandeau mode vacances */}
+        <motion.button
+          whileTap={{ scale: 0.97 }}
+          onClick={toggleVacation}
+          className={"w-full mt-2 py-2 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-colors " + (vacationMode ? "bg-amber-400 text-white" : "bg-gray-100 text-gray-500")}
+        >
+          <span>{vacationMode ? "🏖️" : "🏠"}</span>
+          {vacationMode ? "Mode vacances actif — Appuyer pour reprendre" : "Activer le mode vacances"}
+        </motion.button>
       </header>
 
+      {/* Contenu principal */}
       <main className="flex-1 overflow-hidden">
         <AnimatePresence mode="wait">
           {activeTab === "home" && (
             <motion.div key="home" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="h-full">
               {isLoaded && (
-                <TaskList
-                  tasks={tasks}
-                  onDone={markTaskDone}
-                  onPostpone={() => {}}
-                  onEdit={(task) => setEditingTask(task)}
-                  onDelete={handleDeleteRequest}
-                />
+                vacationMode ? (
+                  <div className="flex flex-col items-center justify-center py-32 px-8 text-center">
+                    <div className="text-6xl mb-4">🏖️</div>
+                    <h2 className="text-xl font-bold text-gray-700 mb-2">Bonnes vacances !</h2>
+                    <p className="text-gray-400 text-sm">Les taches sont en pause. Appuyez sur le bandeau en haut pour reprendre.</p>
+                  </div>
+                ) : (
+                  <TaskList
+                    tasks={tasks}
+                    onDone={markTaskDone}
+                    onPostpone={function() {}}
+                    onEdit={function(task) { setEditingTask(task); }}
+                    onDelete={handleDeleteRequest}
+                  />
+                )
               )}
             </motion.div>
           )}
 
           {activeTab === "calendar" && (
             <motion.div key="calendar" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="h-full overflow-y-auto">
-              <CalendarView tasks={tasks} onMarkDone={markTaskDone} />
+              {vacationMode ? (
+                <div className="flex flex-col items-center justify-center py-32 px-8 text-center">
+                  <div className="text-6xl mb-4">🏖️</div>
+                  <h2 className="text-xl font-bold text-gray-700 mb-2">Mode vacances actif</h2>
+                  <p className="text-gray-400 text-sm">Le calendrier est en pause.</p>
+                </div>
+              ) : (
+                <CalendarView tasks={tasks} onMarkDone={markTaskDone} />
+              )}
             </motion.div>
           )}
 
@@ -114,18 +154,20 @@ export default function App() {
                 onSync={syncFromStorage}
                 onExport={exportTasks}
                 onImport={importTasks}
+                onReset={function() { localStorage.clear(); window.location.reload(); }}
               />
             </motion.div>
           )}
         </AnimatePresence>
       </main>
 
-      {activeTab === "home" && (
+      {/* FAB + */}
+      {activeTab === "home" && !vacationMode && (
         <motion.button
           whileTap={{ scale: 0.9 }}
           initial={{ scale: 0, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
-          onClick={() => setEditingTask(null)}
+          onClick={function() { setEditingTask(null); }}
           className="fixed bottom-20 right-5 w-14 h-14 bg-indigo-600 text-white rounded-full shadow-lg shadow-indigo-300 flex items-center justify-center text-3xl font-light z-30 hover:bg-indigo-700 transition-colors"
         >
           +
@@ -139,27 +181,27 @@ export default function App() {
           task={editingTask}
           users={[config.user1, config.user2]}
           onSave={handleSaveTask}
-          onClose={() => setEditingTask(undefined)}
+          onClose={function() { setEditingTask(undefined); }}
         />
       )}
 
       {deletingTaskId && (
         <ConfirmationModal
           type="delete"
-          title="Supprimer la tâche"
-          message={`Êtes-vous sûr de vouloir supprimer "${deletingTaskName}" ?`}
+          title="Supprimer la tache"
+          message={"Etes-vous sur de vouloir supprimer \"" + deletingTaskName + "\" ?"}
           confirmLabel="Supprimer"
           cancelLabel="Annuler"
           onConfirm={handleDeleteConfirm}
-          onCancel={() => setDeletingTaskId(null)}
+          onCancel={function() { setDeletingTaskId(null); }}
         />
       )}
 
       {postponeInfo && (
         <ConfirmationModal
           type="postpone"
-          title="Reporter la tâche"
-          message={`Reportée au ${postponeInfo.nextDayLabel}. Valider ?`}
+          title="Reporter la tache"
+          message={"Reportee au " + postponeInfo.nextDayLabel + ". Valider ?"}
           confirmLabel="Oui, reporter"
           cancelLabel="Non"
           onConfirm={confirmPostpone}
