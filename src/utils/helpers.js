@@ -1,5 +1,5 @@
 import {
-  addMonths, setDate,
+  addMonths, addWeeks, setDate,
   nextMonday, nextTuesday, nextWednesday, nextThursday,
   nextFriday, nextSaturday, nextSunday,
   format, parseISO,
@@ -7,19 +7,38 @@ import {
 import { fr } from "date-fns/locale";
 import { DAYS_OF_WEEK } from "./constants";
 
+var DAY_FNS = [
+  nextMonday, nextTuesday, nextWednesday, nextThursday,
+  nextFriday, nextSaturday, nextSunday,
+];
+
 export function getNextOccurrence(task, fromDate) {
   if (!fromDate) fromDate = new Date();
   var frequency = task.frequency;
   var day = task.day;
+  var days = task.days;
 
-  if (frequency === "weekly") {
+  if (frequency === "weekly" || frequency === "biweekly") {
+    var weeks = frequency === "biweekly" ? 2 : 1;
+    // Multi-jours : trouver le prochain jour parmi la liste
+    if (days && days.length > 0) {
+      var candidates = days.map(function(d) {
+        var idx = DAYS_OF_WEEK.indexOf(d);
+        if (idx < 0) return null;
+        var next = DAY_FNS[idx](fromDate);
+        if (frequency === "biweekly") next = addWeeks(next, 1);
+        return next;
+      }).filter(Boolean);
+      if (candidates.length === 0) return null;
+      candidates.sort(function(a, b) { return a - b; });
+      return candidates[0];
+    }
+    // Jour unique
     var dayIndex = DAYS_OF_WEEK.indexOf(day);
-    var fns = [
-      nextMonday, nextTuesday, nextWednesday, nextThursday,
-      nextFriday, nextSaturday, nextSunday,
-    ];
-    if (dayIndex < 0 || dayIndex >= fns.length) return null;
-    return fns[dayIndex](fromDate);
+    if (dayIndex < 0) return null;
+    var next = DAY_FNS[dayIndex](fromDate);
+    if (frequency === "biweekly") next = addWeeks(next, 1);
+    return next;
   }
 
   if (frequency === "monthly") {
@@ -45,7 +64,15 @@ export function formatShortDate(date) {
 export function getFrequencyLabel(task) {
   var frequency = task.frequency;
   var day = task.day;
-  if (frequency === "weekly") return "Chaque " + day;
+  var days = task.days;
+
+  if (frequency === "weekly" || frequency === "biweekly") {
+    var prefix = frequency === "biweekly" ? "1 sem. / 2 : " : "Chaque ";
+    if (days && days.length > 1) {
+      return prefix + days.join(", ");
+    }
+    return prefix + (days && days[0] ? days[0] : day);
+  }
   if (frequency === "monthly") return "Le " + day + " du mois";
   if (frequency === "seasonal") return day.charAt(0).toUpperCase() + day.slice(1);
   return "";
@@ -54,11 +81,26 @@ export function getFrequencyLabel(task) {
 export function isTaskScheduledOnDate(task, date) {
   var frequency = task.frequency;
   var day = task.day;
+  var days = task.days;
 
-  if (frequency === "weekly") {
+  if (frequency === "weekly" || frequency === "biweekly") {
     var jsDay = date.getDay();
     var mapped = jsDay === 0 ? 6 : jsDay - 1;
-    return DAYS_OF_WEEK[mapped] === day;
+    var currentDay = DAYS_OF_WEEK[mapped];
+
+    // Multi-jours
+    if (days && days.length > 0) {
+      if (days.indexOf(currentDay) < 0) return false;
+    } else {
+      if (currentDay !== day) return false;
+    }
+
+    // Pour bimensuel : vérifier la semaine (semaines paires)
+    if (frequency === "biweekly") {
+      var weekNum = getWeekNumber(date);
+      return weekNum % 2 === 0;
+    }
+    return true;
   }
 
   if (frequency === "monthly") {
@@ -75,6 +117,14 @@ export function isTaskScheduledOnDate(task, date) {
   }
 
   return false;
+}
+
+function getWeekNumber(date) {
+  var d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() + 4 - (d.getDay() || 7));
+  var yearStart = new Date(d.getFullYear(), 0, 1);
+  return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
 }
 
 export function getCurrentWeekDays() {
