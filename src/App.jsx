@@ -1,10 +1,11 @@
 import React, { useState, useCallback } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ToastContainer } from "react-toastify";
+import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
 import { loadConfig } from "./utils/storage";
 import { useTasks } from "./hooks/useTasks";
+import { useGamification } from "./hooks/useGamification";
 
 import SetupScreen from "./components/SetupScreen";
 import TaskList from "./components/TaskList";
@@ -13,6 +14,8 @@ import SyncPage from "./components/SyncPage";
 import Navbar from "./components/Navbar";
 import AddEditTaskModal from "./components/AddEditTaskModal";
 import ConfirmationModal from "./components/ConfirmationModal";
+import LevelUpModal from "./components/LevelUpModal";
+import StatsBar from "./components/StatsBar";
 
 export default function App() {
   const [config, setConfig] = useState(function() { return loadConfig(); });
@@ -25,31 +28,46 @@ export default function App() {
   });
 
   const {
-    tasks,
-    isLoaded,
-    postponeInfo,
-    addTask,
-    updateTask,
-    deleteTask,
-    markTaskDone,
-    confirmPostpone,
-    cancelPostpone,
-    syncFromStorage,
-    exportTasks,
-    importTasks,
+    tasks, isLoaded, postponeInfo,
+    addTask, updateTask, deleteTask,
+    markTaskDone, confirmPostpone, cancelPostpone,
+    syncFromStorage, exportTasks, importTasks,
   } = useTasks(config);
 
-  const handleSaveTask = useCallback(
-    function(formData) {
-      if (editingTask && editingTask.id) {
-        updateTask(editingTask.id, formData);
-      } else {
-        addTask(formData);
+  const {
+    stats, levelTitle, progress,
+    levelUpInfo, waifuUrl,
+    addPoints, dismissLevelUp,
+  } = useGamification();
+
+  const handleMarkDone = useCallback(function(taskId) {
+    const task = tasks.find(function(t) { return t.id === taskId; });
+    if (!task) return;
+    markTaskDone(taskId);
+    const pts = addPoints(task.frequency);
+    toast.success(
+      "+" + pts + " pts ! Tache \"" + task.name + "\" validee !",
+      {
+        position: "top-right",
+        autoClose: 3000,
+        style: {
+          background: "#4F46E5",
+          color: "#fff",
+          fontFamily: "Inter, sans-serif",
+          borderRadius: 12,
+        },
       }
-      setEditingTask(undefined);
-    },
-    [editingTask, addTask, updateTask]
-  );
+    );
+  }, [tasks, markTaskDone, addPoints]);
+
+  const handleSaveTask = useCallback(function(formData) {
+    if (editingTask && editingTask.id) {
+      updateTask(editingTask.id, formData);
+    } else {
+      addTask(formData);
+    }
+    setEditingTask(undefined);
+  }, [editingTask, addTask, updateTask]);
 
   const handleDeleteRequest = useCallback(function(id) {
     const task = tasks.find(function(t) { return t.id === id; });
@@ -97,7 +115,12 @@ export default function App() {
           </div>
         </div>
 
-        {/* Bandeau mode vacances */}
+        {/* Barre de stats */}
+        <div className="mt-2 -mx-4">
+          <StatsBar stats={stats} levelTitle={levelTitle} progress={progress} />
+        </div>
+
+        {/* Mode vacances */}
         <motion.button
           whileTap={{ scale: 0.97 }}
           onClick={toggleVacation}
@@ -108,7 +131,7 @@ export default function App() {
         </motion.button>
       </header>
 
-      {/* Contenu principal */}
+      {/* Contenu */}
       <main className="flex-1 overflow-hidden">
         <AnimatePresence mode="wait">
           {activeTab === "home" && (
@@ -118,12 +141,12 @@ export default function App() {
                   <div className="flex flex-col items-center justify-center py-32 px-8 text-center">
                     <div className="text-6xl mb-4">🏖️</div>
                     <h2 className="text-xl font-bold text-gray-700 mb-2">Bonnes vacances !</h2>
-                    <p className="text-gray-400 text-sm">Les taches sont en pause. Appuyez sur le bandeau en haut pour reprendre.</p>
+                    <p className="text-gray-400 text-sm">Les taches sont en pause.</p>
                   </div>
                 ) : (
                   <TaskList
                     tasks={tasks}
-                    onDone={markTaskDone}
+                    onDone={handleMarkDone}
                     onPostpone={function() {}}
                     onEdit={function(task) { setEditingTask(task); }}
                     onDelete={handleDeleteRequest}
@@ -142,7 +165,7 @@ export default function App() {
                   <p className="text-gray-400 text-sm">Le calendrier est en pause.</p>
                 </div>
               ) : (
-                <CalendarView tasks={tasks} onMarkDone={markTaskDone} />
+                <CalendarView tasks={tasks} onMarkDone={handleMarkDone} />
               )}
             </motion.div>
           )}
@@ -161,7 +184,7 @@ export default function App() {
         </AnimatePresence>
       </main>
 
-      {/* FAB + */}
+      {/* FAB */}
       {activeTab === "home" && !vacationMode && (
         <motion.button
           whileTap={{ scale: 0.9 }}
@@ -189,7 +212,7 @@ export default function App() {
         <ConfirmationModal
           type="delete"
           title="Supprimer la tache"
-          message={"Etes-vous sur de vouloir supprimer \"" + deletingTaskName + "\" ?"}
+          message={"Supprimer \"" + deletingTaskName + "\" ?"}
           confirmLabel="Supprimer"
           cancelLabel="Annuler"
           onConfirm={handleDeleteConfirm}
@@ -208,6 +231,13 @@ export default function App() {
           onCancel={cancelPostpone}
         />
       )}
+
+      {/* Modal Level Up avec waifu */}
+      <LevelUpModal
+        levelUpInfo={levelUpInfo}
+        waifuUrl={waifuUrl}
+        onClose={dismissLevelUp}
+      />
 
       <ToastContainer />
     </div>
