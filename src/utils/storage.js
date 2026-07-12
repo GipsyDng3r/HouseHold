@@ -103,3 +103,40 @@ export function mergeTasksWithConflictDetection(localTasks, remoteTasks) {
     conflicts: conflicts,
   };
 }
+
+/**
+ * Charge automatiquement la config depuis un fichier JSON
+ * si aucune config n'existe en localStorage.
+ * Appele au demarrage de l'app.
+ */
+export function autoLoadFromJSON(onLoaded) {
+  if (loadConfig()) return;
+  var input = document.createElement("input");
+  input.type = "file";
+  input.accept = "application/json";
+  input.onchange = function(e) {
+    var file = e.target.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function(ev) {
+      try {
+        var data = JSON.parse(ev.target.result);
+        if (data.householdId && data.tasks) {
+          var config = {
+            householdId: data.householdId,
+            user1: data.user1 || "Utilisateur 1",
+            user2: data.user2 || "Utilisateur 2",
+            currentUser: data.user1 || "Utilisateur 1",
+          };
+          saveConfig(config);
+          saveTasks(data.householdId, data.tasks);
+          if (onLoaded) onLoaded(config);
+        }
+      } catch (err) {
+        console.warn("Erreur chargement JSON:", err);
+      }
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+}
