@@ -104,7 +104,7 @@ const Task = memo(function Task({ task, onDone, onPostpone, onEdit, onDelete }) 
         </div>
       </div>
 
-      <div className="flex gap-2 mt-3 pt-2 border-t border-gray-100">
+      <div className="flex flex-wrap gap-2 mt-3 pt-2 border-t border-gray-100">
         {!isDone && (
           <ActionButton onClick={() => onDone(task.id)} color="green" icon={<Check size={15} />} label="Valider" />
         )}
