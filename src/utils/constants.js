@@ -1,19 +1,12 @@
-export const SEASONS = ["printemps", "été", "automne", "hiver"];
+export const SEASONS = ["printemps", "ete", "automne", "hiver"];
 export const ROOMS = ["Cuisine", "Salon", "Salle de bain", "Chambre", "Autre"];
 export const DAYS_OF_WEEK = [
   "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"
 ];
 
-export const ROOM_ICONS = {
-  Cuisine: "ChefHat",
-  Salon: "Sofa",
-  "Salle de bain": "Bath",
-  Chambre: "Bed",
-  Autre: "Home",
-};
-
 export const FREQUENCY_LABELS = {
   weekly: "Hebdomadaire",
+  biweekly: "Toutes les 2 semaines",
   monthly: "Mensuel",
   seasonal: "Saisonnier",
 };
@@ -25,6 +18,7 @@ export const sampleTasks = [
     room: "Salon",
     frequency: "weekly",
     day: "mercredi",
+    days: ["mercredi"],
     isDone: false,
     lastDone: null,
     lastDoneBy: null,
@@ -37,6 +31,7 @@ export const sampleTasks = [
     room: "Cuisine",
     frequency: "monthly",
     day: 15,
+    days: null,
     isDone: false,
     lastDone: null,
     lastDoneBy: null,
@@ -48,7 +43,8 @@ export const sampleTasks = [
     name: "Laver les rideaux",
     room: "Chambre",
     frequency: "seasonal",
-    day: "été",
+    day: "ete",
+    days: null,
     isDone: false,
     lastDone: null,
     lastDoneBy: null,
